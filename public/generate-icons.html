@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<body>
+<canvas id="c512" width="512" height="512"></canvas>
+<canvas id="c192" width="192" height="192"></canvas>
+<script>
+function drawIcon(canvas) {
+  const ctx = canvas.getContext('2d')
+  const s = canvas.width
+  const r = s * 0.23
+  // Rounded rect
+  ctx.beginPath()
+  ctx.moveTo(r, 0)
+  ctx.lineTo(s-r, 0)
+  ctx.quadraticCurveTo(s, 0, s, r)
+  ctx.lineTo(s, s-r)
+  ctx.quadraticCurveTo(s, s, s-r, s)
+  ctx.lineTo(r, s)
+  ctx.quadraticCurveTo(0, s, 0, s-r)
+  ctx.lineTo(0, r)
+  ctx.quadraticCurveTo(0, 0, r, 0)
+  ctx.closePath()
+  const g = ctx.createLinearGradient(0, 0, s, s)
+  g.addColorStop(0, '#e94560')
+  g.addColorStop(0.5, '#f7931a')
+  g.addColorStop(1, '#9b59b6')
+  ctx.fillStyle = g
+  ctx.fill()
+  // Checkmark
+  ctx.beginPath()
+  ctx.moveTo(s*0.25, s*0.5)
+  ctx.lineTo(s*0.44, s*0.72)
+  ctx.lineTo(s*0.75, s*0.34)
+  ctx.strokeStyle = 'white'
+  ctx.lineWidth = s * 0.1
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.stroke()
+  return canvas.toDataURL('image/png')
+}
+
+const d512 = drawIcon(document.getElementById('c512'))
+const d192 = drawIcon(document.getElementById('c192'))
+
+document.body.innerHTML += `
+  <br><a href="${d512}" download="icon-512.png">Download 512x512</a>
+  <br><a href="${d192}" download="icon-192.png">Download 192x192</a>
+  <br><img src="${d512}" width="100">
+  <br><img src="${d192}" width="40">
+`
+</script>
+</body>
+</html>
