@@ -1,19 +1,26 @@
 import { useState } from 'react'
-import { Settings, X, Upload, AlarmClock, Timer, Key, LogOut, Copy, Check, Bell, Save } from 'lucide-react'
+import { Settings, X, Upload, AlarmClock, Timer, LogOut, Copy, Check, Bell, Save, Send } from 'lucide-react'
 import { saveSoundToDB } from '../utils/db'
 import { hexToNpub, publishProfile } from '../utils/nostr'
+import { testTelegramConnection } from '../utils/telegram'
 
 export default function SettingsPanel({
   theme, cycleSpeed, customSoundName,
   onCycleSpeedChange, onSoundUpload,
   onTestAlarm, onTestSession, onClose,
-  onLogout, keypair, profile, onProfileSave, dmNpub, onDmNpubChange,
+  onLogout, keypair, profile, onProfileSave,
+  dmNpub, onDmNpubChange,
+  tgToken, onTgTokenChange,
+  tgChatId, onTgChatIdChange,
 }) {
   const [tab, setTab] = useState('general')
   const [copied, setCopied] = useState('')
   const [editProfile, setEditProfile] = useState({ name: profile?.name || '', about: profile?.about || '', picture: profile?.picture || '', website: profile?.website || '', nip05: profile?.nip05 || '' })
   const [dmInput, setDmInput] = useState(dmNpub || '')
+  const [tgTokenInput, setTgTokenInput] = useState(tgToken || '')
+  const [tgChatIdInput, setTgChatIdInput] = useState(tgChatId || '')
   const [dmSaveState, setDmSaveState] = useState('idle')
+  const [tgSaveState, setTgSaveState] = useState('idle')
   const [profileSaveState, setProfileSaveState] = useState('idle')
 
   const npub = keypair?.pkRaw ? hexToNpub(keypair.pkRaw) : ''
@@ -31,11 +38,20 @@ export default function SettingsPanel({
 
   const handleSaveDm = () => {
     setDmSaveState('saving')
-    setTimeout(() => {
-      onDmNpubChange(dmInput)
-      setDmSaveState('saved')
-      setTimeout(() => setDmSaveState('idle'), 2000)
-    }, 800)
+    setTimeout(() => { onDmNpubChange(dmInput); setDmSaveState('saved'); setTimeout(() => setDmSaveState('idle'), 2000) }, 800)
+  }
+
+  const handleSaveTg = async () => {
+    setTgSaveState('saving')
+    const ok = await testTelegramConnection(tgTokenInput, tgChatIdInput)
+    if (ok) {
+      onTgTokenChange(tgTokenInput)
+      onTgChatIdChange(tgChatIdInput)
+      setTgSaveState('saved')
+    } else {
+      setTgSaveState('error')
+    }
+    setTimeout(() => setTgSaveState('idle'), 3000)
   }
 
   const handleSaveProfile = async () => {
@@ -46,28 +62,20 @@ export default function SettingsPanel({
     setTimeout(() => setProfileSaveState('idle'), 2000)
   }
 
-  const dmBtnStyle = {
+  const saveBtn = (state, idle) => ({
     width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-    background: dmSaveState === 'saved' ? '#2ecc71' : dmSaveState === 'saving' ? '#f7931a' : theme.primary,
+    background: state === 'saved' ? '#2ecc71' : state === 'saving' ? '#f7931a' : state === 'error' ? '#e94560' : theme.primary,
     color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
     marginBottom: 8, transition: 'background 0.3s',
-  }
-
-  const profileBtnStyle = {
-    width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-    background: profileSaveState === 'saved' ? '#2ecc71' : profileSaveState === 'saving' ? '#f7931a' : theme.primary,
-    color: '#fff', fontSize: '0.9rem', fontWeight: 700, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    marginBottom: 8, transition: 'background 0.3s',
-  }
+  })
 
   const s = {
     panel: { position: 'fixed', top: 0, right: 0, bottom: 0, width: '90%', maxWidth: 360, background: theme.surface, borderLeft: `1px solid ${theme.border}`, zIndex: 200, display: 'flex', flexDirection: 'column', overflowY: 'auto' },
     header: { padding: '20px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
     title: { fontSize: '1.1rem', fontWeight: 'bold', color: theme.primary, display: 'flex', alignItems: 'center', gap: 8 },
     tabs: { display: 'flex', borderBottom: `1px solid ${theme.border}`, marginBottom: 20, padding: '0 20px' },
-    tab: (active) => ({ padding: '10px 14px', fontSize: '0.82rem', border: 'none', background: 'none', color: active ? theme.primary : theme.subtext, borderBottom: active ? `2px solid ${theme.primary}` : '2px solid transparent', cursor: 'pointer', fontWeight: active ? 700 : 400 }),
+    tab: (active) => ({ padding: '10px 12px', fontSize: '0.78rem', border: 'none', background: 'none', color: active ? theme.primary : theme.subtext, borderBottom: active ? `2px solid ${theme.primary}` : '2px solid transparent', cursor: 'pointer', fontWeight: active ? 700 : 400 }),
     body: { padding: '0 20px', flex: 1 },
     label: { color: theme.subtext, fontSize: '0.72rem', marginBottom: 6, marginTop: 16, letterSpacing: 1.5, textTransform: 'uppercase' },
     row: { background: theme.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${theme.border}`, marginBottom: 8 },
@@ -146,7 +154,7 @@ export default function SettingsPanel({
             <input style={s.input} value={editProfile.website} onChange={e => setEditProfile(p => ({ ...p, website: e.target.value }))} placeholder="https://..." />
             <div style={s.label}>NIP-05</div>
             <input style={s.input} value={editProfile.nip05} onChange={e => setEditProfile(p => ({ ...p, nip05: e.target.value }))} placeholder="you@domain.com" />
-            <button style={profileBtnStyle} onClick={handleSaveProfile} disabled={profileSaveState === 'saving'}>
+            <button style={saveBtn(profileSaveState)} onClick={handleSaveProfile} disabled={profileSaveState === 'saving'}>
               {profileSaveState === 'saving' ? <><Spinner /> Publishing...</> : profileSaveState === 'saved' ? <><Check size={16} /> Saved!</> : <><Save size={16} /> Save Profile</>}
             </button>
           </>
@@ -174,17 +182,31 @@ export default function SettingsPanel({
 
         {tab === 'notifications' && (
           <>
-            <div style={s.label}>DM Notification npub</div>
+            {/* Nostr DM */}
+            <div style={s.label}>Nostr DM Target</div>
             <div style={s.row}>
               <div style={{ color: theme.subtext, fontSize: '0.78rem', marginBottom: 10, lineHeight: 1.5 }}>
-                Alarm will send a DM to this npub. Set your own npub to get notified via Amethyst, Primal or any Nostr client.
+                Alarm sends a Nostr DM to this npub. Use your own npub to get notified via Amethyst or Primal.
               </div>
               <input style={s.input} value={dmInput} onChange={e => setDmInput(e.target.value)} placeholder="npub1..." />
-              <button style={dmBtnStyle} onClick={handleSaveDm} disabled={dmSaveState === 'saving'}>
+              <button style={saveBtn(dmSaveState)} onClick={handleSaveDm} disabled={dmSaveState === 'saving'}>
                 {dmSaveState === 'saving' ? <><Spinner /> Saving...</> : dmSaveState === 'saved' ? <><Check size={16} /> Saved!</> : <><Bell size={15} /> Save DM Target</>}
               </button>
-              <button style={s.outlineBtn} onClick={() => { setDmInput(npub); }}>
-                Use my own npub
+              <button style={s.outlineBtn} onClick={() => setDmInput(npub)}>Use my own npub</button>
+            </div>
+
+            {/* Telegram */}
+            <div style={s.label}>Telegram Notifications</div>
+            <div style={s.row}>
+              <div style={{ color: theme.subtext, fontSize: '0.78rem', marginBottom: 10, lineHeight: 1.5 }}>
+                Get alarm notifications with Dismiss & Snooze buttons directly in Telegram.
+              </div>
+              <div style={{ color: theme.subtext, fontSize: '0.72rem', marginBottom: 8 }}>1. Open @BotFather → /newbot → get token</div>
+              <input style={s.input} value={tgTokenInput} onChange={e => setTgTokenInput(e.target.value)} placeholder="Bot Token: 123456:ABC..." />
+              <div style={{ color: theme.subtext, fontSize: '0.72rem', marginBottom: 8 }}>2. Message your bot → get Chat ID from @userinfobot</div>
+              <input style={s.input} value={tgChatIdInput} onChange={e => setTgChatIdInput(e.target.value)} placeholder="Chat ID: 847002755..." />
+              <button style={saveBtn(tgSaveState)} onClick={handleSaveTg} disabled={tgSaveState === 'saving'}>
+                {tgSaveState === 'saving' ? <><Spinner /> Connecting...</> : tgSaveState === 'saved' ? <><Check size={16} /> Connected!</> : tgSaveState === 'error' ? <>❌ Failed - Check details</> : <><Send size={15} /> Connect Telegram</>}
               </button>
             </div>
           </>

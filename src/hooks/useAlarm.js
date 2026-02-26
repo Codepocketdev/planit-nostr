@@ -4,8 +4,9 @@ import { playFallbackAlarm, stopFallbackAlarm } from '../utils/audio'
 import { loadSoundFromDB } from '../utils/db'
 import { npubToHex } from '../utils/nostr'
 import { sendAlarmDM } from '../utils/dm'
+import { sendTelegramAlarm } from '../utils/telegram'
 
-export function useAlarm({ todos, onAlarm, onMarkDone, onSnoozeAdd, skRaw, pkRaw, dmNpub }) {
+export function useAlarm({ todos, onAlarm, onMarkDone, onSnoozeAdd, skRaw, pkRaw, dmNpub, tgToken, tgChatId }) {
   const firedRef = useRef(new Set())
   const audioRef = useRef(null)
 
@@ -44,23 +45,27 @@ export function useAlarm({ todos, onAlarm, onMarkDone, onSnoozeAdd, skRaw, pkRaw
         audio.volume = 1.0
         audioRef.current = audio
         await audio.play()
-      } catch {
-        playFallbackAlarm()
-      }
+      } catch { playFallbackAlarm() }
     } else {
       playFallbackAlarm()
     }
+    // Nostr DM
     if (skRaw && dmNpub) {
       const targetHex = npubToHex(dmNpub)
       if (targetHex) sendAlarmDM(skRaw, targetHex, todo.task, todo.due_time).catch(() => {})
     }
+    // Telegram
+    if (tgToken && tgChatId) {
+      sendTelegramAlarm(tgToken, tgChatId, todo, isSessionEnd).catch(() => {})
+    }
+    // Browser notification
     if (Notification.permission === 'granted') {
       new Notification(
         isSessionEnd ? `Session ended: ${todo.task}` : `Task Due: ${todo.task}`,
         { body: isSessionEnd ? 'Your session has ended.' : `${todo.category} · ${todo.priority} priority` }
       )
     }
-  }, [onAlarm, skRaw, dmNpub])
+  }, [onAlarm, skRaw, dmNpub, tgToken, tgChatId])
 
   useEffect(() => {
     const check = () => {
